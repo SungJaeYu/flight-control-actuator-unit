@@ -29,6 +29,23 @@ low-voltage motor driver → small actuator / motor
 
 첫 구현은 검증된 저전압 모터 드라이버 모듈과 저출력 모터를 사용합니다. 3상 인버터나 항공기 수준의 조종면 구동은 범위에 넣지 않습니다. PCB는 배선·전원·보호회로와 측정 요구가 정리되고 브레드보드/모듈 기반 구동이 안정화된 후 선택적으로 설계합니다.
 
+
+## Bare-metal / register-level track
+
+이 프로젝트의 학습 포인트는 단순히 모터를 움직이는 것이 아니라 **STM32 peripheral이 실제로 어떻게 설정되고 주기 제어가 어떻게 만들어지는지 레지스터 수준에서 설명할 수 있게 되는 것**입니다.
+
+핵심 제어 경로에서는 STM32 HAL과 RTOS를 사용하지 않고 CMSIS/device header를 이용합니다. 모든 startup code나 vendor support를 처음부터 다시 만드는 것이 목적은 아니며, 아래 peripheral의 설정과 동작 근거를 reference manual/data sheet에서 찾아 직접 연결하는 데 집중합니다.
+
+- **RCC / clock tree:** peripheral clock enable과 timer/UART clock의 근거를 계산한다.
+- **GPIO:** mode, output type, speed, pull-up/down, alternate-function 설정을 직접 확인한다.
+- **TIM / PWM:** prescaler, auto-reload, compare register를 이용해 주기와 duty를 계산하고 실제 파형으로 검증한다.
+- **Interrupt / NVIC:** timer 또는 UART interrupt enable, pending/clear 흐름과 ISR 실행 시간을 확인한다.
+- **UART:** baud-rate 설정과 TX/RX 경로를 직접 구성하고 PC test tool과 telemetry를 연결한다.
+- **Feedback input:** 선택한 encoder/potentiometer에 따라 timer input capture/encoder mode 또는 ADC를 register-level로 구성한다.
+- **Control loop:** 처음에는 bounded P/PID 같은 단순한 위치 제어부터 시작하고, 알고리즘보다 sampling period·saturation·fault behavior를 우선 검증한다.
+
+P1 `radar-track-fcc-hil`이 **Zephyr RTOS + asynchronous sensor processing + HIL**을 보여준다면, 이 저장소는 **bare-metal + peripheral registers + PWM/feedback + physical actuator**를 보여주는 서로 다른 증거로 유지합니다.
+
 ## Scope
 
 - STM32의 clock, GPIO, timer/PWM, interrupt, UART 및 필요한 feedback 입력을 레지스터 수준에서 설정합니다. CMSIS/device header는 사용하며 STM32 HAL과 RTOS는 핵심 구동 경로에서 사용하지 않는 것을 목표로 합니다.
